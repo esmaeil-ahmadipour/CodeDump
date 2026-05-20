@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+
+# Reports (generated files)
+code_report_*.txt
+backup/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config with sensitive data (optional)
+settings.local.json
+
+# Logs
+*.log
+
+# Temp files
+*.tmp
+*.temp

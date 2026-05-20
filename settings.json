@@ -1,0 +1,26 @@
+{
+  "version": "1.0",
+  "enabled": true,
+  "skip_menu": false,
+  "global": {
+    "exclude_dirs": ["node_modules", "dist", "build", "__pycache__", ".git"],
+    "exclude_files": ["*.log", "*.tmp", ".env*"],
+    "include_extensions": [".js", ".ts", ".json", ".md", ".txt", ".py", ".sh", ".yaml"],
+    "exclude_patterns": ["generated"],
+    "max_file_size_mb": 10,
+    "output_format": "single",
+    "backup": {
+      "enabled": true,
+      "compress": false,
+      "retention_days": 30
+    }
+  },
+  "projects": [
+    {
+      "name": "CodeDump",
+      "path": "./code",
+      "include_extensions": [".txt", ".md"],
+      "enabled": true 
+    }
+  ]
+}
