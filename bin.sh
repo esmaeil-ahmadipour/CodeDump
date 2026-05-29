@@ -22,23 +22,15 @@ NC='\033[0m' # No Color
 # Find CODE folder (case insensitive)
 # ============================================
 find_code_folder() {
-    # Check for CODE (uppercase) first
-    if [ -d "$SCRIPT_DIR/CODE" ]; then
-        echo "$SCRIPT_DIR/CODE"
-        return 0
-    fi
+
     
-    # Check for code (lowercase) second
+    # Check for code (lowercase)
     if [ -d "$SCRIPT_DIR/code" ]; then
         echo "$SCRIPT_DIR/code"
         return 0
     fi
     
-    # Also check for Code (mixed case) just in case
-    if [ -d "$SCRIPT_DIR/Code" ]; then
-        echo "$SCRIPT_DIR/Code"
-        return 0
-    fi
+ 
     
     return 1
 }
