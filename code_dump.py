@@ -365,6 +365,7 @@ def parse_arguments():
     parser.add_argument('--single', '-s', action='store_true', help='Create single combined report')
     parser.add_argument('--output', '-o', default='code_report.txt', help='Output filename')
     parser.add_argument('--config', '-c', default='settings.json', help='Path to settings.json')
+    parser.add_argument('--no-config', action='store_true', help='Ignore settings.json file')  # NEW
     return parser.parse_args()
 
 def main():
