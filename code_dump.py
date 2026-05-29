@@ -365,32 +365,47 @@ def parse_arguments():
     parser.add_argument('--single', '-s', action='store_true', help='Create single combined report')
     parser.add_argument('--output', '-o', default='code_report.txt', help='Output filename')
     parser.add_argument('--config', '-c', default='settings.json', help='Path to settings.json')
-    parser.add_argument('--no-config', action='store_true', help='Ignore settings.json file')  # NEW
+    parser.add_argument('--no-config', action='store_true', help='Ignore settings.json file')
     return parser.parse_args()
 
 def main():
     setup_console_encoding()
     args = parse_arguments()
     
-    config = load_config(args.config)
-    
-    if not config.get("enabled", True):
-        print("❌ Extraction is disabled")
-        sys.exit(0)
-    
-    if args.target_dir:
-        target_dir = os.path.abspath(args.target_dir)
-        if not os.path.isdir(target_dir):
-            print(f"❌ Error: '{args.target_dir}' is not a valid directory")
-            sys.exit(1)
+    # NEW: Skip config if --no-config flag is set
+    if args.no_config:
+        config = {
+            "enabled": True,
+            "global": {
+                "exclude_dirs": DEFAULT_EXCLUDED_DIRS.copy(),
+                "exclude_files": [],
+                "include_extensions": DEFAULT_ALLOWED_EXTENSIONS.copy(),
+                "exclude_patterns": DEFAULT_IGNORED_PATTERNS.copy(),
+                "max_file_size_mb": DEFAULT_MAX_FILE_SIZE_MB,
+                "output_format": DEFAULT_OUTPUT_FORMAT,
+                "backup": {"enabled": False, "compress": False, "retention_days": 30}
+            },
+            "projects": []
+        }
+        project_config = config["global"].copy()
+        project_name = None
     else:
-        target_dir = os.getcwd()
-    
-    # Get project config
-    project_config = get_project_config(config, target_dir)
-    
-    # Get project name from config
-    project_name = get_project_name_from_config(config, target_dir)
+        config = load_config(args.config)
+        
+        if not config.get("enabled", True):
+            print("❌ Extraction is disabled")
+            sys.exit(0)
+        
+        if args.target_dir:
+            target_dir = os.path.abspath(args.target_dir)
+            if not os.path.isdir(target_dir):
+                print(f"❌ Error: '{args.target_dir}' is not a valid directory")
+                sys.exit(1)
+        else:
+            target_dir = os.getcwd()
+        
+        project_config = get_project_config(config, target_dir)
+        project_name = get_project_name_from_config(config, target_dir)
     
     print("━" * 3)
     print("CODE DUMP")
