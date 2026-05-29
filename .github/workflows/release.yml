@@ -3,17 +3,14 @@ name: 🚀 Build and Release
 on:
   push:
     tags:
-      - 'v*'              # v1.0.0, v2.1.3, v1.0.0-beta
-  workflow_dispatch:       # قابلیت اجرای دستی
+      - 'v*'
+  workflow_dispatch:
 
 env:
   PYTHON_VERSION: '3.11'
   PROJECT_NAME: 'CodeDump'
 
 jobs:
-  # ============================================================
-  # JOB 1: تست روی همه پلتفرم‌ها
-  # ============================================================
   test:
     name: 🧪 Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -59,7 +56,6 @@ jobs:
           mkdir -p test_output
           cd tests 2>/dev/null || mkdir -p tests && cd tests
           
-          # Create minimal test
           cat > test_runner.py << 'EOF'
 import os
 import sys
@@ -73,18 +69,15 @@ def test_mode1():
     with tempfile.TemporaryDirectory() as tmpdir:
         os.chdir(tmpdir)
         
-        # Copy scripts
         shutil.copy(sys.argv[1], "bin.sh")
         shutil.copy(sys.argv[2], "code_dump.py")
         os.chmod("bin.sh", 0o755)
         os.chmod("code_dump.py", 0o755)
         
-        # Create test code folder
         os.makedirs("code")
         with open("code/test.py", "w") as f:
             f.write("print('hello')")
         
-        # Run Mode 1
         proc = subprocess.run(['bash', '-c', 'echo "1" | ./bin.sh'], 
                               capture_output=True, text=True, cwd=tmpdir)
         
@@ -159,9 +152,6 @@ EOF
         if: always()
         run: echo "✅ Tests completed on ${{ runner.os }}"
 
-  # ============================================================
-  # JOB 2: Build برای لینوکس
-  # ============================================================
   build-linux:
     name: 🐧 Build for Linux
     runs-on: ubuntu-latest
@@ -169,37 +159,40 @@ EOF
     steps:
       - uses: actions/checkout@v4
       
-      - name: 📦 Create Linux package
+      - name: Create Linux package
         run: |
-          mkdir -p CodeDump-linux
-          cp bin.sh code_dump.py settings.json CodeDump-linux/
+          mkdir -p CodeDump-linux/code
+          cp bin.sh code_dump.py settings.json README.md CodeDump-linux/ 2>/dev/null || true
           chmod +x CodeDump-linux/bin.sh CodeDump-linux/code_dump.py
           
-          # Create README with quick start
+          echo "# Sample Code Folder" > CodeDump-linux/code/README.md
+          echo "" >> CodeDump-linux/code/README.md
+          echo "Place your project files inside this folder, then run ./bin.sh and select option 1." >> CodeDump-linux/code/README.md
+          
           cat > CodeDump-linux/README.txt << 'EOF'
           CodeDump - Linux
-          =================
+          
+          Structure:
+          - bin.sh
+          - code/README.md
+          - code_dump.py
+          - README.md
+          - settings.json
           
           Quick Start:
-          1. Make sure Python 3.8+ and jq are installed
-             sudo apt install python3 jq
-          
+          1. Install: sudo apt install python3 jq
           2. Run: ./bin.sh
-          
-          3. Choose mode 1 (code folder) or 2 (settings.json)
+          3. Select mode 1 or 2
           EOF
           
           tar -czvf CodeDump-linux.tar.gz CodeDump-linux/
           
-      - name: 📤 Upload artifact
+      - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: codedump-linux
           path: CodeDump-linux.tar.gz
 
-  # ============================================================
-  # JOB 3: Build برای macOS
-  # ============================================================
   build-macos:
     name: 🍎 Build for macOS
     runs-on: macos-latest
@@ -207,33 +200,48 @@ EOF
     steps:
       - uses: actions/checkout@v4
       
-      - name: 📦 Create macOS package
+      - name: Create macOS package
         run: |
-          mkdir -p CodeDump-macOS
-          cp bin.sh code_dump.py settings.json CodeDump-macOS/
+          mkdir -p CodeDump-macOS/code
+          cp bin.sh code_dump.py settings.json README.md CodeDump-macOS/ 2>/dev/null || true
           chmod +x CodeDump-macOS/bin.sh CodeDump-macOS/code_dump.py
           
-          # Create double-clickable command file
+          echo "# Sample Code Folder" > CodeDump-macOS/code/README.md
+          echo "" >> CodeDump-macOS/code/README.md
+          echo "Place your project files inside this folder, then run ./bin.sh and select option 1." >> CodeDump-macOS/code/README.md
+          
           cat > CodeDump-macOS/run.command << 'EOF'
           #!/usr/bin/env bash
           cd "$(dirname "$0")"
-          echo "Starting CodeDump..."
-          echo ""
           ./bin.sh
           EOF
           chmod +x CodeDump-macOS/run.command
           
+          cat > CodeDump-macOS/README.txt << 'EOF'
+          CodeDump - macOS
+          
+          Structure:
+          - bin.sh
+          - code/README.md
+          - code_dump.py
+          - README.md
+          - run.command
+          - settings.json
+          
+          Quick Start:
+          1. Install: brew install python3 jq
+          2. Run: ./bin.sh or double-click run.command
+          3. Select mode 1 or 2
+          EOF
+          
           tar -czvf CodeDump-macOS.tar.gz CodeDump-macOS/
           
-      - name: 📤 Upload artifact
+      - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: codedump-macos
           path: CodeDump-macOS.tar.gz
 
-  # ============================================================
-  # JOB 4: Build برای ویندوز (PowerShell + CMD + bash)
-  # ============================================================
   build-windows:
     name: 🪟 Build for Windows
     runs-on: windows-latest
@@ -241,23 +249,29 @@ EOF
     steps:
       - uses: actions/checkout@v4
       
-      - name: 📦 Create Windows package
+      - name: Create Windows package
         shell: powershell
         run: |
           New-Item -ItemType Directory -Path CodeDump-Windows -Force
+          New-Item -ItemType Directory -Path CodeDump-Windows/code -Force
           
-          # Copy main files
           Copy-Item bin.sh -Destination CodeDump-Windows/
           Copy-Item code_dump.py -Destination CodeDump-Windows/
           Copy-Item settings.json -Destination CodeDump-Windows/
+          Copy-Item README.md -Destination CodeDump-Windows/ -ErrorAction SilentlyContinue
           
-          # Create PowerShell runner
+          @"
+          # Sample Code Folder
+          
+          Place your project files inside this folder, then run run.ps1 (PowerShell) or run.bat (CMD) and select option 1.
+          "@ | Out-File -FilePath CodeDump-Windows/code/README.md -Encoding UTF8
+          
           @"
           `$choice = Read-Host "Select mode (1=code folder, 2=settings.json)"
           
           if (`$choice -eq "1") {
-              if (Test-Path "code") { python code_dump.py code --single --output code_report.txt }
-              elseif (Test-Path "CODE") { python code_dump.py CODE --single --output code_report.txt }
+              if (Test-Path "code") { python code_dump.py code --single --output code_report.txt --no-config }
+              elseif (Test-Path "CODE") { python code_dump.py CODE --single --output code_report.txt --no-config }
               else { Write-Host "code folder not found!" -ForegroundColor Red }
           } 
           elseif (`$choice -eq "2") {
@@ -273,37 +287,51 @@ EOF
           Read-Host "Press Enter to exit"
           "@ | Out-File -FilePath CodeDump-Windows/run.ps1 -Encoding UTF8
           
-          # Create CMD runner
           @"
           @echo off
           set /p choice="Select mode (1=code folder, 2=settings.json): "
           if "%choice%"=="1" (
-              if exist code\ (python code_dump.py code --single --output code_report.txt) else (echo code folder not found!)
+              if exist code\ (python code_dump.py code --single --output code_report.txt --no-config) else (echo code folder not found!)
           ) else if "%choice%"=="2" (
-              if exist settings.json (python -c "import json; [print(f'Processing {p[`"name`"]}...') or __import__('subprocess').call(['python', 'code_dump.py', p['path'], '--single', '--output', f'code_report_{p[`"name`"]}.txt']) for p in json.load(open('settings.json'))['projects'] if p.get('enabled', True)]") else (echo settings.json not found!)
+              if exist settings.json (python -c "import json; import subprocess; config = json.load(open('settings.json')); [subprocess.run(['python', 'code_dump.py', p['path'], '--single', '--output', f'code_report_{p.get("name", "project")}.txt']) for p in config.get('projects', []) if p.get('enabled', True)]") else (echo settings.json not found!)
           ) else (echo Invalid choice!)
           pause
           "@ | Out-File -FilePath CodeDump-Windows/run.bat -Encoding ascii
           
-          # Create WSL runner (optional)
           @'
           #!/bin/bash
-          echo "Running CodeDump in WSL..."
           ./bin.sh
           '@ | Out-File -FilePath CodeDump-Windows/run-wsl.sh -Encoding UTF8
           
-          # Compress to zip
+          @"
+          CodeDump - Windows
+          
+          Structure:
+          - bin.sh
+          - code/README.md
+          - code_dump.py
+          - README.md
+          - run.bat
+          - run.ps1
+          - run-wsl.sh
+          - settings.json
+          
+          Ways to run:
+          - PowerShell: .\run.ps1
+          - CMD: run.bat
+          - WSL/Git Bash: ./bin.sh or ./run-wsl.sh
+          
+          Requirements: Python 3.8+, jq (optional for Mode 2)
+          "@ | Out-File -FilePath CodeDump-Windows/README.txt -Encoding UTF8
+          
           Compress-Archive -Path CodeDump-Windows/* -DestinationPath CodeDump-Windows.zip -Force
           
-      - name: 📤 Upload artifact
+      - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: codedump-windows
           path: CodeDump-Windows.zip
 
-  # ============================================================
-  # JOB 5: Create GitHub Release
-  # ============================================================
   release:
     name: 📦 Create Release
     runs-on: ubuntu-latest
@@ -313,50 +341,72 @@ EOF
       actions: read
       
     steps:
-      - name: 📥 Download all artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
           
-      - name: 📂 List artifacts
+      - name: List artifacts
         run: |
           echo "Artifacts downloaded:"
           ls -la artifacts/
           ls -la artifacts/*/ || true
           
-      - name: 🏷️ Get tag name
+      - name: Get tag name
         id: tag
         run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
         
-      - name: 📝 Generate release notes
-        id: notes
-        run: |
-          cat > release_notes.md << 'EOF'
-          ## 📦 What's Changed
-          
-          ### 🚀 Features
-          - Dual mode operation (code folder + settings.json projects)
-          - JSON configuration with validation
-          - Automatic backups
-          
-          ### 🐧 Linux
-          - Run `./bin.sh` in terminal
-          - Requires: python3, jq
-          
-          ### 🍎 macOS
-          - Run `./bin.sh` or double-click `run.command`
-          - Requires: brew install python3 jq
-          
-          ### 🪟 Windows
-          - **PowerShell**: Run `./run.ps1`
-          - **CMD**: Run `run.bat`
-          - **WSL**: Run `./run-wsl.sh`
-          - Requires: Python 3.8+, jq (for Mode 2)
-          
-          ## 📖 Usage
-          
-          **Mode 1** - Process ./code folder:
-          ```bash
-          mkdir code
-          cp -r your-project/* code/
-          ./bin.sh  # then select 1
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.TAG_NAME }}
+          name: "CodeDump ${{ steps.tag.outputs.TAG_NAME }}"
+          files: |
+            artifacts/codedump-linux/CodeDump-linux.tar.gz
+            artifacts/codedump-macos/CodeDump-macOS.tar.gz
+            artifacts/codedump-windows/CodeDump-Windows.zip
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+          body: |
+            ## CodeDump ${{ steps.tag.outputs.TAG_NAME }}
+            
+            ### Features
+            - Dual mode operation (code folder + settings.json projects)
+            - JSON configuration with validation
+            - Automatic backups
+            
+            ### Downloads
+            
+            | OS | File | Run Command |
+            |:---|:---|:---|
+            | Linux | CodeDump-linux.tar.gz | ./bin.sh |
+            | macOS | CodeDump-macOS.tar.gz | ./bin.sh or double-click run.command |
+            | Windows | CodeDump-Windows.zip | run.ps1 (PowerShell) or run.bat (CMD) |
+            
+            ### Package Structure
+            
+            .
+            ├── bin.sh
+            ├── code/
+            │   └── README.md
+            ├── code_dump.py
+            ├── README.md
+            └── settings.json
+            
+            ### Quick Start
+            
+            Linux/macOS:
+              tar -xzf CodeDump-linux.tar.gz
+              cd CodeDump-linux
+              ./bin.sh
+            
+            Windows (PowerShell):
+              Expand-Archive CodeDump-Windows.zip
+              cd CodeDump-Windows
+              .\run.ps1
+            
+            ### Links
+            - GitHub Repository: https://github.com/${{ github.repository }}
+            - Report Issues: https://github.com/${{ github.repository }}/issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
