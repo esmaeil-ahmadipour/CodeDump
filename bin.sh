@@ -161,7 +161,7 @@ process_code() {
     echo "📊 Found $file_count file(s) to process"
     echo ""
     
-    python3 "$SCRIPT_DIR/code_dump.py" "$CODE_DIR" --single --output "$SCRIPT_DIR/code_report.txt"
+    python3 "$SCRIPT_DIR/code_dump.py" "$CODE_DIR" --single --output "$SCRIPT_DIR/code_report.txt" --no-config
     local exit_code=$?
     
     if [ $exit_code -eq 0 ] && [ -f "$SCRIPT_DIR/code_report.txt" ] && [ -s "$SCRIPT_DIR/code_report.txt" ]; then
