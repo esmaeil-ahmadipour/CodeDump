@@ -256,4 +256,7 @@ case $choice in
 esac
 
 echo ""
-read -p "Press Enter to close..."
+# Only wait for input if running in interactive terminal
+if [ -t 0 ] && [ -t 1 ]; then
+    read -p "Press Enter to close..." 2>/dev/null || true
+fi
