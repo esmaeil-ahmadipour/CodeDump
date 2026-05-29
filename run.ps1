@@ -5,9 +5,9 @@
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $PSDefaultParameterValues['*:Encoding'] = 'utf8'
 
-Write-Host "============================================" -ForegroundColor Cyan
-Write-Host "          CODE DUMP - DUAL MODE" -ForegroundColor Cyan
-Write-Host "============================================" -ForegroundColor Cyan
+Write-Host "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" -ForegroundColor Cyan
+Write-Host "┃          CODE DUMP - DUAL MODE (PowerShell)     ┃" -ForegroundColor Cyan
+Write-Host "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛" -ForegroundColor Cyan
 Write-Host ""
 
 Write-Host "Select operation mode:" -ForegroundColor Yellow
@@ -34,7 +34,7 @@ switch ($choice) {
         
         if (-not $codeFolder) {
             Write-Host "✗ ERROR: 'code' folder not found!" -ForegroundColor Red
-            Write-Host "  Please create a folder named 'code' (lowercase) or 'CODE' (uppercase)"
+            Write-Host "  Please create a folder named 'code' or 'CODE'"
         }
         else {
             $fileCount = (Get-ChildItem -Path $codeFolder -File -Recurse -ErrorAction SilentlyContinue).Count
@@ -47,15 +47,15 @@ switch ($choice) {
                 Write-Host "📊 Found $fileCount file(s) to process"
                 Write-Host ""
                 
-                python code_dump.py $codeFolder --single --output code_report.txt
+                python code_dump.py $codeFolder --single --output code_report.txt --no-config
                 
                 if ($LASTEXITCODE -eq 0 -and (Test-Path "code_report.txt")) {
                     $size = Get-Item "code_report.txt" | Select-Object -ExpandProperty Length
-                    $sizeMB = [math]::Round($size / 1MB, 2)
+                    $sizeKB = [math]::Round($size / 1KB, 1)
                     Write-Host ""
                     Write-Host "✓ Extraction completed successfully!" -ForegroundColor Green
                     Write-Host "📄 Report saved to: $PSScriptRoot\code_report.txt"
-                    Write-Host "📏 File size: $sizeMB MB"
+                    Write-Host "📏 File size: $sizeKB KB"
                 }
                 else {
                     Write-Host "✗ Extraction failed!" -ForegroundColor Red
@@ -70,18 +70,9 @@ switch ($choice) {
         Write-Host "📦 Processing projects from settings.json..." -ForegroundColor Cyan
         Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
         
-        # Check if settings.json exists
         if (-not (Test-Path "settings.json")) {
             Write-Host "✗ ERROR: settings.json not found!" -ForegroundColor Red
-            Write-Host "  Please create settings.json with your project configurations"
             break
-        }
-        
-        # Check if jq is installed (try to use PowerShell if jq not available)
-        $jqAvailable = $null -ne (Get-Command jq -ErrorAction SilentlyContinue)
-        
-        if (-not $jqAvailable) {
-            Write-Host "⚠ jq not found, using PowerShell JSON parser..." -ForegroundColor Yellow
         }
         
         try {
@@ -103,11 +94,6 @@ switch ($choice) {
             
             $successCount = 0
             $failCount = 0
-            
-            Write-Host ""
-            Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
-            Write-Host "🚀 Starting extraction..." -ForegroundColor Cyan
-            Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
             
             foreach ($proj in $enabledProjects) {
                 $projectName = $proj.name
