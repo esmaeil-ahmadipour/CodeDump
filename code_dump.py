@@ -372,8 +372,18 @@ def main():
     setup_console_encoding()
     args = parse_arguments()
     
-    # NEW: Skip config if --no-config flag is set
+    # Determine target directory FIRST
+    if args.target_dir:
+        target_dir = os.path.abspath(args.target_dir)
+        if not os.path.isdir(target_dir):
+            print(f"❌ Error: '{args.target_dir}' is not a valid directory")
+            sys.exit(1)
+    else:
+        target_dir = os.getcwd()
+    
+    # Handle config based on --no-config flag
     if args.no_config:
+        # Use default config without loading settings.json
         config = {
             "enabled": True,
             "global": {
@@ -396,17 +406,10 @@ def main():
             print("❌ Extraction is disabled")
             sys.exit(0)
         
-        if args.target_dir:
-            target_dir = os.path.abspath(args.target_dir)
-            if not os.path.isdir(target_dir):
-                print(f"❌ Error: '{args.target_dir}' is not a valid directory")
-                sys.exit(1)
-        else:
-            target_dir = os.getcwd()
-        
         project_config = get_project_config(config, target_dir)
         project_name = get_project_name_from_config(config, target_dir)
     
+    # Print status
     print("━" * 3)
     print("CODE DUMP")
     print("━" * 3)
