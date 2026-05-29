@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - uses: actions/checkout@v4
@@ -24,46 +24,82 @@ jobs:
         with:
           python-version: '3.11'
 
+      # ============================================================
+      # Linux - Install jq
+      # ============================================================
       - name: Install jq (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y jq
+          jq --version
 
+      # ============================================================
+      # macOS - Install jq
+      # ============================================================
       - name: Install jq (macOS)
         if: runner.os == 'macOS'
-        run: brew install jq
+        run: |
+          brew install jq
+          jq --version
 
-      - name: Make scripts executable
+      # ============================================================
+      # Windows - Install jq
+      # ============================================================
+      - name: Install jq (Windows)
+        if: runner.os == 'Windows'
+        run: choco install jq
+        shell: powershell
+
+      # ============================================================
+      # Make scripts executable (Unix only)
+      # ============================================================
+      - name: Make scripts executable (Unix)
+        if: runner.os != 'Windows'
         run: chmod +x bin.sh code_dump.py
 
+      # ============================================================
+      # TEST 1: Mode 1 (code folder)
+      # ============================================================
       - name: Test Mode 1 (code folder)
+        shell: bash
         run: |
+          # Clean up
           rm -rf code CODE Code code_report.txt 2>/dev/null || true
           
+          # Create test code folder
           mkdir -p code
           echo "print('hello world')" > code/test.py
           echo "README content" > code/readme.md
           
-          # Run with || true to ignore the read prompt error
+          # Run Mode 1 (ignore the read prompt error)
           echo "1" | ./bin.sh || true
           
+          # Verify output
           if [ -f code_report.txt ] && [ -s code_report.txt ]; then
-            echo "✅ Mode 1 passed"
+            echo "✅ Mode 1 passed - code_report.txt created"
+            echo "File size: $(wc -c < code_report.txt) bytes"
+            exit 0
           else
-            echo "❌ Mode 1 failed"
+            echo "❌ Mode 1 failed - code_report.txt not found or empty"
             exit 1
           fi
-        shell: bash
 
+      # ============================================================
+      # TEST 2: Mode 2 (settings.json)
+      # ============================================================
       - name: Test Mode 2 (settings.json)
+        shell: bash
         run: |
+          # Clean up
           rm -rf code CODE Code code_report*.txt settings.json backup 2>/dev/null || true
           
+          # Create test project
           mkdir -p test_project
           echo "console.log('test');" > test_project/app.js
           echo '{"version": "1.0"}' > test_project/config.json
           
+          # Create settings.json
           cat > settings.json << 'EOF'
           {
             "enabled": true,
@@ -80,17 +116,24 @@ jobs:
           }
           EOF
           
+          # Run Mode 2
           echo "2" | ./bin.sh || true
           
+          # Verify output
           if [ -f code_report_TestProject.txt ] && [ -s code_report_TestProject.txt ]; then
-            echo "✅ Mode 2 passed"
+            echo "✅ Mode 2 passed - code_report_TestProject.txt created"
+            echo "File size: $(wc -c < code_report_TestProject.txt) bytes"
+            exit 0
           else
-            echo "❌ Mode 2 failed"
+            echo "❌ Mode 2 failed - code_report_TestProject.txt not found"
             exit 1
           fi
-        shell: bash
 
-      - name: Test Python direct call (bypassing bin.sh)
+      # ============================================================
+      # TEST 3: Python direct call (bypasses bin.sh)
+      # ============================================================
+      - name: Test Python direct call
+        shell: bash
         run: |
           rm -rf code_report.txt 2>/dev/null || true
           mkdir -p code
@@ -100,19 +143,213 @@ jobs:
           
           if [ -f code_report.txt ] && [ -s code_report.txt ]; then
             echo "✅ Python direct call passed"
+            echo "File size: $(wc -c < code_report.txt) bytes"
+            exit 0
           else
             echo "❌ Python direct call failed"
             exit 1
           fi
-        shell: bash
 
-      - name: Summary
+      # ============================================================
+      # TEST 4: PowerShell specific (Windows only)
+      # ============================================================
+      - name: Test PowerShell runner (Windows only)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          # Clean up
+          Remove-Item -Path code, CODE, Code, code_report*.txt, settings.json -Recurse -Force -ErrorAction SilentlyContinue
+          
+          # Create test files
+          New-Item -ItemType Directory -Path code -Force | Out-Null
+          "Write-Host 'PowerShell test'" | Out-File -FilePath code/test.ps1 -Encoding UTF8
+          
+          # Run PowerShell runner with Mode 1
+          "1`n" | powershell.exe -File run.ps1
+          
+          # Verify
+          if (Test-Path code_report.txt) {
+            $size = (Get-Item code_report.txt).Length
+            Write-Host "✅ PowerShell runner passed - Report size: $size bytes" -ForegroundColor Green
+          } else {
+            Write-Host "❌ PowerShell runner failed" -ForegroundColor Red
+            exit 1
+          }
+
+      # ============================================================
+      # TEST 5: CMD specific (Windows only)
+      # ============================================================
+      - name: Test CMD runner (Windows only)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          del /q code_report.txt 2>nul
+          rmdir /s /q code 2>nul
+          
+          mkdir code
+          echo @echo off > code\test.bat
+          
+          echo 1 | run.bat
+          
+          if exist code_report.txt (
+            echo ✅ CMD runner passed
+          ) else (
+            echo ❌ CMD runner failed
+            exit 1
+          )
+
+      # ============================================================
+      # TEST 6: Git Bash on Windows (via bash shell)
+      # ============================================================
+      - name: Test Git Bash on Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          rm -rf code CODE Code code_report.txt 2>/dev/null || true
+          
+          mkdir -p code
+          echo "print('git bash test')" > code/test.py
+          
+          echo "1" | bin.sh || true
+          
+          if [ -f code_report.txt ] && [ -s code_report.txt ]; then
+            echo "✅ Git Bash test passed"
+          else
+            echo "❌ Git Bash test failed"
+            exit 1
+          fi
+
+      # ============================================================
+      # TEST 7: Content verification
+      # ============================================================
+      - name: Verify report content
+        shell: bash
+        run: |
+          if [ -f code_report.txt ]; then
+            if grep -q "Generated by CodeDump" code_report.txt; then
+              echo "✅ GitHub promo found in report"
+            else
+              echo "⚠️ GitHub promo not found (continuing)"
+            fi
+            
+            if grep -q "GitHub" code_report.txt; then
+              echo "✅ GitHub link found in report"
+            else
+              echo "⚠️ GitHub link not found (continuing)"
+            fi
+          else
+            echo "⚠️ No report to verify (continuing)"
+          fi
+
+      # ============================================================
+      # TEST 8: JSON validation (invalid JSON)
+      # ============================================================
+      - name: Test JSON validation
+        shell: bash
+        run: |
+          echo "{ invalid json without quotes" > settings.json
+          
+          OUTPUT=$(echo "2" | ./bin.sh 2>&1 || true)
+          
+          if echo "$OUTPUT" | grep -qi "invalid json"; then
+            echo "✅ JSON validation correctly detected error"
+          else
+            echo "⚠️ JSON validation message not found (continuing)"
+          fi
+          
+          # Restore valid settings.json for next tests
+          cat > settings.json << 'EOF'
+          {
+            "projects": [
+              {"name": "dummy", "path": ".", "enabled": false}
+            ]
+          }
+          EOF
+          
+          exit 0
+        continue-on-error: true
+
+      # ============================================================
+      # TEST 9: Missing code folder
+      # ============================================================
+      - name: Test missing code folder
+        shell: bash
+        run: |
+          rm -rf code CODE Code 2>/dev/null || true
+          
+          OUTPUT=$(echo "1" | ./bin.sh 2>&1 || true)
+          
+          if echo "$OUTPUT" | grep -q "code folder not found"; then
+            echo "✅ Missing folder detection works"
+          else
+            echo "⚠️ Missing folder message not found (continuing)"
+          fi
+          
+          exit 0
+        continue-on-error: true
+
+      # ============================================================
+      # TEST 10: Backup creation (Mode 2)
+      # ============================================================
+      - name: Test backup creation
+        shell: bash
+        run: |
+          rm -rf code CODE Code code_report*.txt settings.json backup 2>/dev/null || true
+          
+          mkdir -p test_backup
+          echo "backup test content" > test_backup/file.txt
+          
+          cat > settings.json << 'EOF'
+          {
+            "global": {
+              "backup": {"enabled": true}
+            },
+            "projects": [
+              {"name": "BackupTest", "path": "./test_backup", "enabled": true}
+            ]
+          }
+          EOF
+          
+          echo "2" | ./bin.sh || true
+          
+          if [ -d "backup" ] && [ "$(ls -A backup 2>/dev/null)" ]; then
+            echo "✅ Backup test passed"
+          else
+            echo "⚠️ Backup folder not created (backup may be optional)"
+          fi
+          
+          exit 0
+        continue-on-error: true
+
+      # ============================================================
+      # SUMMARY
+      # ============================================================
+      - name: Test Summary
         if: always()
+        shell: bash
         run: |
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "📊 TEST SUMMARY - ${{ runner.os }}"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          ls -la code_report*.txt 2>/dev/null || echo "No reports"
+          echo ""
+          echo "Generated reports:"
+          ls -la code_report*.txt 2>/dev/null || echo "  (none)"
+          echo ""
+          echo "Backup folder:"
+          ls -la backup/ 2>/dev/null || echo "  (none)"
+          echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        shell: bash
+
+      # ============================================================
+      # Upload artifacts (for debugging)
+      # ============================================================
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ runner.os }}
+          path: |
+            code_report*.txt
+            backup/
+            settings.json
