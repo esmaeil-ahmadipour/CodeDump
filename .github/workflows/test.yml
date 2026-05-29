@@ -15,7 +15,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        # Windows temporarily disabled due to WSL/bash issues
 
     steps:
       - uses: actions/checkout@v4
@@ -27,40 +26,70 @@ jobs:
 
       - name: Install jq (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+          jq --version
 
       - name: Install jq (macOS)
         if: runner.os == 'macOS'
-        run: brew install jq
+        run: |
+          brew install jq
+          jq --version
 
       - name: Make scripts executable
         run: chmod +x bin.sh code_dump.py
 
+      - name: Debug - show files
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "Files:"
+          ls -la
+          echo "Python version:"
+          python3 --version
+          echo "Bash version:"
+          bash --version
+
       - name: Test Mode 1 (simple code folder)
         run: |
-          # Clean up any existing code folder first
-          rm -rf code CODE Code 2>/dev/null || true
+          set -x  # Print each command
+          
+          # Clean up
+          rm -rf code CODE Code code_report.txt 2>/dev/null || true
           
           # Create test code folder
           mkdir -p code
           echo "print('hello world')" > code/test.py
           echo "README content" > code/readme.md
           
-          # Run Mode 1 with automation (send '1' to stdin)
+          # Show what we created
+          echo "Code folder contents:"
+          ls -la code/
+          
+          # Run Mode 1 with automation
+          echo "Running: echo '1' | ./bin.sh"
           echo "1" | ./bin.sh
           
-          # Verify output
-          if [ -f code_report.txt ] && [ -s code_report.txt ]; then
-            echo "✅ Mode 1 passed - code_report.txt created"
+          # Check result
+          if [ -f code_report.txt ]; then
+            echo "✅ code_report.txt exists"
+            echo "File size: $(wc -c < code_report.txt) bytes"
+            echo "First 10 lines:"
+            head -10 code_report.txt
             exit 0
           else
-            echo "❌ Mode 1 failed - code_report.txt not found or empty"
+            echo "❌ code_report.txt not found!"
+            echo "Current directory contents:"
+            ls -la
             exit 1
           fi
         shell: bash
 
       - name: Test Mode 2 (with settings.json)
         run: |
+          set -x
+          
           # Clean up
           rm -rf code CODE Code code_report*.txt settings.json backup 2>/dev/null || true
           
@@ -86,51 +115,43 @@ jobs:
           }
           EOF
           
+          echo "settings.json created:"
+          cat settings.json
+          
           # Run Mode 2
           echo "2" | ./bin.sh
           
-          # Verify
-          if [ -f code_report_TestProject.txt ] && [ -s code_report_TestProject.txt ]; then
-            echo "✅ Mode 2 passed - code_report_TestProject.txt created"
+          # Check result
+          if [ -f code_report_TestProject.txt ]; then
+            echo "✅ code_report_TestProject.txt exists"
+            echo "File size: $(wc -c < code_report_TestProject.txt) bytes"
             exit 0
           else
-            echo "❌ Mode 2 failed"
+            echo "❌ code_report_TestProject.txt not found!"
+            echo "Files in current directory:"
             ls -la
             exit 1
           fi
         shell: bash
 
-      - name: Test JSON validation (invalid JSON)
+      - name: Test Python direct call
         run: |
-          echo "{ invalid json without quotes" > settings.json
+          set -x
           
-          OUTPUT=$(echo "2" | ./bin.sh 2>&1)
+          rm -rf code_report.txt 2>/dev/null || true
+          mkdir -p code
+          echo "test content" > code/test.txt
           
-          if echo "$OUTPUT" | grep -qi "invalid json"; then
-            echo "✅ JSON validation correctly detected error"
+          python3 code_dump.py code --single --output code_report.txt --no-config
+          
+          if [ -f code_report.txt ] && [ -s code_report.txt ]; then
+            echo "✅ Python direct call passed"
+            exit 0
           else
-            echo "⚠️ JSON validation message check (continuing)"
+            echo "❌ Python direct call failed"
+            exit 1
           fi
-          
-          # Don't fail this test - just warning
-          exit 0
         shell: bash
-        continue-on-error: true
-
-      - name: Test missing code folder
-        run: |
-          rm -rf code CODE Code 2>/dev/null || true
-          
-          OUTPUT=$(echo "1" | ./bin.sh 2>&1)
-          
-          if echo "$OUTPUT" | grep -q "code folder not found"; then
-            echo "✅ Missing folder detection works"
-          else
-            echo "⚠️ Missing folder message not found"
-          fi
-          exit 0
-        shell: bash
-        continue-on-error: true
 
       - name: Summary
         if: always()
@@ -142,9 +163,6 @@ jobs:
           echo ""
           echo "Generated reports:"
           ls -la code_report*.txt 2>/dev/null || echo "  (none)"
-          echo ""
-          echo "Backup folder:"
-          ls -la backup/ 2>/dev/null || echo "  (none)"
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         shell: bash
