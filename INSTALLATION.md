@@ -20,7 +20,7 @@ sudo apt update
 # 2. Install Python if not present
 sudo apt install -y python3 python3-pip
 
-# 3. Install jq (optional but recommended)
+# 3. Install jq (required for Mode 2 - projects from settings.json)
 sudo apt install -y jq
 
 # 4. Verify installations
@@ -38,6 +38,19 @@ chmod +x bin.sh code_dump.py
 # 7. Test run
 ./bin.sh
 ```
+After running `./bin.sh`, you will see:
+
+Select operation mode:
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 1) Process ./code folder (also accepts ./CODE)    ┃
+┃ 2) Process projects from settings.json            ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+- **Mode 1**: Simple mode - place your code in `./code/` folder
+- **Mode 2**: Advanced mode - configure projects in `settings.json`
+
+---
 
 ### **Fedora/RHEL (35+)**
 

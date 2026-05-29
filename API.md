@@ -7,12 +7,13 @@ Technical reference for command-line interface, exit codes, and integration patt
 ### **code_dump.py**
 
 ```bash
-usage: code_dump.py [-h] [--single] [--output OUTPUT] [--config CONFIG] [target_dir]
+usage: code_dump.py [-h] [--single] [--output OUTPUT] [--config CONFIG] [--no-config] [target_dir]
 
 Extract text files from directories
 
 positional arguments:
   target_dir            Target directory to process (default: current directory)
+  --no-config           Ignore settings.json file (use only default settings)
 
 optional arguments:
   -h, --help            Show this help message and exit

@@ -1,5 +1,25 @@
 # Changelog
 
+
+## [2.0.0] - 2026-05-30
+
+### Added
+- Dual mode menu in bin.sh: Mode 1 for ./code folder, Mode 2 for settings.json
+- `--no-config` flag in code_dump.py to bypass settings.json entirely
+- JSON validation before processing projects (requires jq)
+- Automatic backup with timestamp for Mode 2 projects
+- Project name support from settings.json for reports
+
+### Changed
+- Mode 1 now uses `--no-config` flag to prevent settings.json interference
+- Improved error messages for JSON syntax errors
+- Cross-platform support verified: Linux, macOS, Windows
+
+### Fixed
+- target_dir variable scope issue when using --no-config
+- Read prompt error in non-interactive environments (GitHub Actions)
+
+
 ## [1.0.0] - 2026-05-20
 
 ### Added
