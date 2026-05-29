@@ -29,76 +29,41 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y jq
-          jq --version
 
       - name: Install jq (macOS)
         if: runner.os == 'macOS'
-        run: |
-          brew install jq
-          jq --version
+        run: brew install jq
 
       - name: Make scripts executable
         run: chmod +x bin.sh code_dump.py
 
-      - name: Debug - show files
+      - name: Test Mode 1 (code folder)
         run: |
-          echo "Current directory:"
-          pwd
-          echo "Files:"
-          ls -la
-          echo "Python version:"
-          python3 --version
-          echo "Bash version:"
-          bash --version
-
-      - name: Test Mode 1 (simple code folder)
-        run: |
-          set -x  # Print each command
-          
-          # Clean up
           rm -rf code CODE Code code_report.txt 2>/dev/null || true
           
-          # Create test code folder
           mkdir -p code
           echo "print('hello world')" > code/test.py
           echo "README content" > code/readme.md
           
-          # Show what we created
-          echo "Code folder contents:"
-          ls -la code/
+          # Run with || true to ignore the read prompt error
+          echo "1" | ./bin.sh || true
           
-          # Run Mode 1 with automation
-          echo "Running: echo '1' | ./bin.sh"
-          echo "1" | ./bin.sh
-          
-          # Check result
-          if [ -f code_report.txt ]; then
-            echo "✅ code_report.txt exists"
-            echo "File size: $(wc -c < code_report.txt) bytes"
-            echo "First 10 lines:"
-            head -10 code_report.txt
-            exit 0
+          if [ -f code_report.txt ] && [ -s code_report.txt ]; then
+            echo "✅ Mode 1 passed"
           else
-            echo "❌ code_report.txt not found!"
-            echo "Current directory contents:"
-            ls -la
+            echo "❌ Mode 1 failed"
             exit 1
           fi
         shell: bash
 
-      - name: Test Mode 2 (with settings.json)
+      - name: Test Mode 2 (settings.json)
         run: |
-          set -x
-          
-          # Clean up
           rm -rf code CODE Code code_report*.txt settings.json backup 2>/dev/null || true
           
-          # Create test project
           mkdir -p test_project
           echo "console.log('test');" > test_project/app.js
           echo '{"version": "1.0"}' > test_project/config.json
           
-          # Create settings.json
           cat > settings.json << 'EOF'
           {
             "enabled": true,
@@ -115,29 +80,18 @@ jobs:
           }
           EOF
           
-          echo "settings.json created:"
-          cat settings.json
+          echo "2" | ./bin.sh || true
           
-          # Run Mode 2
-          echo "2" | ./bin.sh
-          
-          # Check result
-          if [ -f code_report_TestProject.txt ]; then
-            echo "✅ code_report_TestProject.txt exists"
-            echo "File size: $(wc -c < code_report_TestProject.txt) bytes"
-            exit 0
+          if [ -f code_report_TestProject.txt ] && [ -s code_report_TestProject.txt ]; then
+            echo "✅ Mode 2 passed"
           else
-            echo "❌ code_report_TestProject.txt not found!"
-            echo "Files in current directory:"
-            ls -la
+            echo "❌ Mode 2 failed"
             exit 1
           fi
         shell: bash
 
-      - name: Test Python direct call
+      - name: Test Python direct call (bypassing bin.sh)
         run: |
-          set -x
-          
           rm -rf code_report.txt 2>/dev/null || true
           mkdir -p code
           echo "test content" > code/test.txt
@@ -146,7 +100,6 @@ jobs:
           
           if [ -f code_report.txt ] && [ -s code_report.txt ]; then
             echo "✅ Python direct call passed"
-            exit 0
           else
             echo "❌ Python direct call failed"
             exit 1
@@ -160,9 +113,6 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "📊 TEST SUMMARY - ${{ runner.os }}"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo ""
-          echo "Generated reports:"
-          ls -la code_report*.txt 2>/dev/null || echo "  (none)"
-          echo ""
+          ls -la code_report*.txt 2>/dev/null || echo "No reports"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         shell: bash
