@@ -1,197 +1,262 @@
 #!/usr/bin/env bash
 
 echo "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"
-echo "┃          CODE DUMP - DUAL MODE               ┃"
+echo "┃          CODE DUMP - DUAL MODE                    ┃"
 echo "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"
 echo ""
 
-# Store script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="$SCRIPT_DIR/settings.json"
 
-# Default values
-SKIP_MENU=false
+# ============================================
+# Colors
+# ============================================
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
 
-# Check if config exists and has skip_menu option
-if [ -f "$CONFIG_FILE" ]; then
-    echo "✓ Configuration loaded: settings.json"
-    
-    if command -v jq &> /dev/null; then
-        # Check if extraction is enabled globally
-        ENABLED=$(jq -r '.enabled // true' "$CONFIG_FILE")
-        if [ "$ENABLED" = "false" ]; then
-            echo "❌ Extraction is disabled in settings.json"
-            exit 0
-        fi
-        
-        # Check if skip_menu is enabled
-        SKIP_MENU=$(jq -r '.skip_menu // false' "$CONFIG_FILE")
-        if [ "$SKIP_MENU" = "true" ]; then
-            echo "🚀 Headless mode: skip_menu enabled"
-        fi
+# ============================================
+# Find CODE folder (case insensitive)
+# ============================================
+find_code_folder() {
+    if [ -d "$SCRIPT_DIR/CODE" ]; then
+        echo "$SCRIPT_DIR/CODE"
+        return 0
     fi
-else
-    echo "ℹ️ No settings.json found, using defaults"
-fi
+    if [ -d "$SCRIPT_DIR/code" ]; then
+        echo "$SCRIPT_DIR/code"
+        return 0
+    fi
+    if [ -d "$SCRIPT_DIR/Code" ]; then
+        echo "$SCRIPT_DIR/Code"
+        return 0
+    fi
+    return 1
+}
 
-# Function to process projects from JSON
-process_projects() {
-    if [ ! -f "$CONFIG_FILE" ]; then
-        echo "❌ settings.json not found!"
+# ============================================
+# JSON validation
+# ============================================
+validate_json() {
+    local json_file="$1"
+    
+    if [ ! -f "$json_file" ]; then
+        echo -e "${RED}✗ Configuration file not found: $json_file${NC}"
+        return 1
+    fi
+    
+    if [ ! -s "$json_file" ]; then
+        echo -e "${RED}✗ Configuration file is empty: $json_file${NC}"
         return 1
     fi
     
     if ! command -v jq &> /dev/null; then
-        echo "❌ jq is required. Install it: sudo apt install jq"
+        echo -e "${RED}✗ jq is required but not installed${NC}"
+        echo -e "${YELLOW}  Install it: sudo apt install jq${NC}"
         return 1
     fi
     
-    # Get enabled projects
-    PROJECT_COUNT=$(jq '[.projects[] | select(.enabled != false)] | length' "$CONFIG_FILE")
-    
-    if [ "$PROJECT_COUNT" -eq 0 ]; then
-        echo "❌ No enabled projects found in settings.json"
+    if ! jq empty "$json_file" 2>/dev/null; then
+        echo -e "${RED}✗ Invalid JSON syntax in configuration file${NC}"
         return 1
     fi
     
-    echo ""
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "Processing projects from settings.json..."
-    echo ""
+    local has_projects=$(jq 'has("projects")' "$json_file" 2>/dev/null)
+    if [ "$has_projects" != "true" ]; then
+        echo -e "${RED}✗ Missing 'projects' field in configuration${NC}"
+        return 1
+    fi
     
-    # Process each project
-    for i in $(seq 0 $((PROJECT_COUNT - 1))); do
-        PROJECT_PATH=$(jq -r "[.projects[] | select(.enabled != false)][$i].path" "$CONFIG_FILE")
-        PROJECT_NAME=$(jq -r "[.projects[] | select(.enabled != false)][$i].name // \"Untitled_$(date +%Y%m%d_%H%M%S)\"" "$CONFIG_FILE")
-        
-        if [ -z "$PROJECT_PATH" ] || [ "$PROJECT_PATH" = "null" ]; then
-            echo "⚠️ Skipping project $PROJECT_NAME: No path specified"
-            continue
-        fi
-        
-        if [ ! -d "$PROJECT_PATH" ]; then
-            echo "⚠️ Skipping $PROJECT_NAME: Path does not exist - $PROJECT_PATH"
-            continue
-        fi
-        
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "📦 Project: $PROJECT_NAME"
-        echo "📂 Path: $PROJECT_PATH"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        
-        # Process the project
-        python3 "$SCRIPT_DIR/code_dump.py" "$PROJECT_PATH" --single --output "$SCRIPT_DIR/code_report_${PROJECT_NAME}.txt"
-        
-        if [ $? -eq 0 ] && [ -f "$SCRIPT_DIR/code_report_${PROJECT_NAME}.txt" ] && [ -s "$SCRIPT_DIR/code_report_${PROJECT_NAME}.txt" ]; then
-            # Backup the report
-            BACKUP_DIR="$SCRIPT_DIR/backup"
-            mkdir -p "$BACKUP_DIR"
-            DATESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-            cp "$SCRIPT_DIR/code_report_${PROJECT_NAME}.txt" "$BACKUP_DIR/${PROJECT_NAME}_${DATESTAMP}.txt"
-            echo "✓ Backed up to: $BACKUP_DIR/${PROJECT_NAME}_${DATESTAMP}.txt"
-            
-            # Show file size
-            FILE_SIZE=$(du -h "$SCRIPT_DIR/code_report_${PROJECT_NAME}.txt" | cut -f1)
-            echo "📄 Report size: $FILE_SIZE"
-        else
-            echo "❌ Failed to extract or report is empty"
-        fi
-        
-        echo ""
-    done
+    local is_array=$(jq 'if .projects | type == "array" then true else false end' "$json_file")
+    if [ "$is_array" != "true" ]; then
+        echo -e "${RED}✗ 'projects' must be an array, not an object${NC}"
+        return 1
+    fi
     
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "✅ All projects processed"
+    echo -e "${GREEN}✓ Configuration file is valid${NC}"
     return 0
 }
 
-# Function to process current directory
-process_current_dir() {
+# ============================================
+# Validate enabled projects
+# ============================================
+validate_projects() {
+    local json_file="$1"
+    
+    local enabled_count=$(jq '[.projects[] | select(.enabled != false)] | length' "$json_file" 2>/dev/null)
+    
+    if [ "$enabled_count" -eq 0 ]; then
+        echo -e "${YELLOW}⚠ No enabled projects found in settings.json${NC}"
+        return 1
+    fi
+    
+    echo -e "${GREEN}✓ Found $enabled_count enabled project(s)${NC}"
+    
+    local issues=0
+    for i in $(seq 0 $((enabled_count - 1))); do
+        local name=$(jq -r "[.projects[] | select(.enabled != false)][$i].name // \"unnamed\"" "$json_file")
+        local path=$(jq -r "[.projects[] | select(.enabled != false)][$i].path // \"\"" "$json_file")
+        
+        if [ -z "$path" ] || [ "$path" = "null" ] || [ "$path" = "" ]; then
+            echo -e "${RED}  ✗ Project '$name': missing path${NC}"
+            issues=$((issues + 1))
+        elif [ ! -d "$path" ]; then
+            echo -e "${YELLOW}  ⚠ Project '$name': path does not exist: $path${NC}"
+            issues=$((issues + 1))
+        else
+            echo -e "${GREEN}  ✓ Project '$name': ready${NC}"
+        fi
+    done
+    
+    if [ $issues -gt 0 ]; then
+        echo -e "${YELLOW}⚠ $issues project(s) have issues (check paths)${NC}"
+    fi
+    
+    return 0
+}
+
+# ============================================
+# Mode 1: Process code folder
+# ============================================
+process_code() {
+    local CODE_DIR=$(find_code_folder)
+    
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "Processing current directory..."
+    echo "📁 Processing code folder..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    if [ -z "$CODE_DIR" ]; then
+        echo -e "${RED}✗ ERROR: 'code' folder not found!${NC}"
+        echo "  Please create a folder named 'code' or 'CODE'"
+        echo "  Example: mkdir -p \"$SCRIPT_DIR/code\""
+        return 1
+    fi
+    
+    local file_count=$(find "$CODE_DIR" -type f 2>/dev/null | wc -l)
+    if [ "$file_count" -eq 0 ]; then
+        echo -e "${YELLOW}⚠ Warning: code folder is empty!${NC}"
+        return 1
+    fi
+    
+    echo "📂 Input folder: $CODE_DIR"
+    echo "📄 Output file: $SCRIPT_DIR/code_report.txt"
+    echo "📊 Found $file_count file(s) to process"
     echo ""
     
-    # Handle backup folder temporarily
-    BACKUP_PATH="$SCRIPT_DIR/backup"
-    ROOT_BACKUP_EXISTED=false
+    python3 "$SCRIPT_DIR/code_dump.py" "$CODE_DIR" --single --output "$SCRIPT_DIR/code_report.txt" --no-config
+    local exit_code=$?
     
-    if [ -d "$BACKUP_PATH" ]; then
-        echo "⚠️ Backup folder detected - temporarily excluding"
-        mv "$BACKUP_PATH" "$SCRIPT_DIR/.backup_excluded"
-        ROOT_BACKUP_EXISTED=true
-    fi
-    
-    cd "$SCRIPT_DIR"
-    python3 code_dump.py --single --output "$SCRIPT_DIR/code_report.txt"
-    PYTHON_EXIT_CODE=$?
-    
-    if [ "$ROOT_BACKUP_EXISTED" = true ]; then
-        mv "$SCRIPT_DIR/.backup_excluded" "$BACKUP_PATH"
-        echo "✓ Backup folder restored"
-    fi
-    
-    # Backup the report
-    if [ $PYTHON_EXIT_CODE -eq 0 ] && [ -f "$SCRIPT_DIR/code_report.txt" ] && [ -s "$SCRIPT_DIR/code_report.txt" ]; then
-        mkdir -p "$BACKUP_PATH"
-        DATESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-        cp "$SCRIPT_DIR/code_report.txt" "$BACKUP_PATH/code_report_${DATESTAMP}.txt"
-        echo "✓ Report backed up to: $BACKUP_PATH/code_report_${DATESTAMP}.txt"
+    if [ $exit_code -eq 0 ] && [ -f "$SCRIPT_DIR/code_report.txt" ] && [ -s "$SCRIPT_DIR/code_report.txt" ]; then
         echo ""
-        echo "📄 FINAL REPORT: $SCRIPT_DIR/code_report.txt"
-        
-        FILE_SIZE=$(du -h "$SCRIPT_DIR/code_report.txt" | cut -f1)
-        echo "📄 Report size: $FILE_SIZE"
+        echo -e "${GREEN}✓ Extraction completed successfully!${NC}"
+        echo "📄 Report saved to: $SCRIPT_DIR/code_report.txt"
+        echo "📏 File size: $(du -h "$SCRIPT_DIR/code_report.txt" | cut -f1)"
+        return 0
     else
-        echo "❌ Failed to extract or report is empty"
+        echo -e "${RED}✗ Extraction failed (exit code: $exit_code)${NC}"
+        return 1
     fi
 }
 
-# Main logic
-if [ "$SKIP_MENU" = "true" ]; then
-    # Skip menu - directly process projects from JSON
+# ============================================
+# Mode 2: Process projects from settings.json
+# ============================================
+process_projects() {
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "Headless mode: Processing projects automatically..."
+    echo "📦 Processing projects from settings.json..."
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    process_projects
-else
-    # Show menu for user selection
-    echo ""
-    echo "Select operation mode:"
-    echo "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"
-    echo "┃ 1) Current directory (scan all folders)          ┃"
-    echo "┃ 2) Use settings.json projects                    ┃"
-    echo "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"
-    echo ""
-    read -p "Enter your choice (1 or 2): " choice
     
-    if [[ "$choice" != "1" && "$choice" != "2" ]]; then
-        echo "❌ Invalid choice!"
-        exit 1
+    echo ""
+    echo "🔍 Validating configuration file..."
+    if ! validate_json "$CONFIG_FILE"; then
+        echo -e "${RED}✗ Cannot proceed due to invalid configuration${NC}"
+        return 1
     fi
     
-    if [ "$choice" == "2" ]; then
-        process_projects
-    else
-        process_current_dir
-    fi
+    echo ""
+    echo "🔍 Checking projects..."
+    validate_projects "$CONFIG_FILE"
+    
+    local project_count=$(jq '[.projects[] | select(.enabled != false)] | length' "$CONFIG_FILE")
+    local success_count=0
+    local fail_count=0
+    
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🚀 Starting extraction..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    for i in $(seq 0 $((project_count - 1))); do
+        PROJECT_NAME=$(jq -r "[.projects[] | select(.enabled != false)][$i].name" "$CONFIG_FILE")
+        PROJECT_PATH=$(jq -r "[.projects[] | select(.enabled != false)][$i].path" "$CONFIG_FILE")
+        
+        if [ -z "$PROJECT_NAME" ] || [ "$PROJECT_NAME" = "null" ]; then
+            PROJECT_NAME="project_$((i+1))"
+        fi
+        
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "📦 Project: $PROJECT_NAME"
+        echo "📂 Path: $PROJECT_PATH"
+        
+        if [ ! -d "$PROJECT_PATH" ]; then
+            echo -e "${RED}✗ SKIPPED: Path does not exist${NC}"
+            fail_count=$((fail_count + 1))
+            continue
+        fi
+        
+        OUTPUT_FILE="$SCRIPT_DIR/code_report_${PROJECT_NAME}.txt"
+        
+        echo "▶️ Running code_dump.py..."
+        python3 "$SCRIPT_DIR/code_dump.py" "$PROJECT_PATH" --single --output "$OUTPUT_FILE"
+        local exit_code=$?
+        
+        if [ $exit_code -eq 0 ] && [ -f "$OUTPUT_FILE" ] && [ -s "$OUTPUT_FILE" ]; then
+            local file_size=$(du -h "$OUTPUT_FILE" | cut -f1)
+            echo -e "${GREEN}✓ Success! Report size: $file_size${NC}"
+            success_count=$((success_count + 1))
+            
+            BACKUP_DIR="$SCRIPT_DIR/backup"
+            mkdir -p "$BACKUP_DIR"
+            DATESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+            cp "$OUTPUT_FILE" "$BACKUP_DIR/${PROJECT_NAME}_${DATESTAMP}.txt"
+            echo "💾 Backup saved to: $BACKUP_DIR/${PROJECT_NAME}_${DATESTAMP}.txt"
+        else
+            echo -e "${RED}✗ Failed! Exit code: $exit_code${NC}"
+            fail_count=$((fail_count + 1))
+        fi
+    done
+    
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "${GREEN}✓ Extraction complete!${NC}"
+    echo "📊 Summary: $success_count successful, $fail_count failed"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+}
+
+# ============================================
+# Main Menu
+# ============================================
+echo "Select operation mode:"
+echo "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"
+echo "┃ 1) Process ./code folder (also accepts ./CODE)    ┃"
+echo "┃ 2) Process projects from settings.json           ┃"
+echo "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"
+echo ""
+read -p "Enter your choice (1 or 2): " choice
+
+case $choice in
+    1) process_code ;;
+    2) process_projects ;;
+    *) echo -e "${RED}✗ Invalid choice! Please enter 1 or 2${NC}" ;;
+esac
+
+echo ""
+# Only wait for input if running in interactive terminal
+if [ -t 0 ] && [ -t 1 ]; then
+    read -p "Press Enter to close..." 2>/dev/null || true
 fi
-
-# List all reports in script directory
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📋 All reports in $SCRIPT_DIR:"
-ls -la "$SCRIPT_DIR"/code_report_*.txt 2>/dev/null || echo "   No reports found"
-echo ""
-echo "💾 Backups in $SCRIPT_DIR/backup"
-
-# Auto close
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "This window will close automatically in 5 seconds..."
-for i in {5..1}; do
-    echo -n "$i... "
-    sleep 1
-done
-echo "Exit"
