@@ -1,26 +1,47 @@
 {
-  "version": "1.0",
-  "enabled": true,
+  "version": 2,
+  "active": true,
   "skip_menu": false,
-  "global": {
-    "exclude_dirs": ["node_modules", "dist", "build", "__pycache__", ".git"],
-    "exclude_files": ["*.log", "*.tmp", ".env*"],
-    "include_extensions": [".js", ".ts", ".json", ".md", ".txt", ".py", ".sh", ".yaml"],
-    "exclude_patterns": ["generated"],
-    "max_file_size_mb": 10,
-    "output_format": "single",
+  "defaults": {
+    "only_extensions": [],
+    "skip_folders": [
+      "node_modules",
+      "dist",
+      "build",
+      "out",
+      "__pycache__",
+      "venv",
+      ".venv",
+      ".git",
+      ".dart_tool",
+      ".idea"
+    ],
+    "skip_files": [
+      "*.log",
+      "*.tmp",
+      ".env*"
+    ],
+    "skip_if_contains": [
+      ".freezed.dart",
+      ".g.dart",
+      ".gr.dart",
+      ".mocks.dart",
+      "generated"
+    ],
+    "max_file_mb": 10,
+    "include_hidden": false,
+    "use_gitignore": true,
+    "show_tree": true,
+    "show_token_estimate": true,
+    "sort_by": "path",
+    "split_tokens": 0,
+    "copy_to_clipboard": false,
+    "output_dir": ".",
     "backup": {
-      "enabled": true,
+      "keep": true,
       "compress": false,
-      "retention_days": 30
+      "days": 30
     }
   },
-  "projects": [
-    {
-      "name": "CodeDump",
-      "path": "./code",
-      "include_extensions": [".txt", ".md"],
-      "enabled": true 
-    }
-  ]
+  "projects": []
 }
