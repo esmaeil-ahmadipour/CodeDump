@@ -41,7 +41,7 @@ jobs:
 
       - name: Make scripts executable (Unix)
         if: runner.os != 'Windows'
-        run: chmod +x bin.sh code_dump.py
+        run: chmod +x run.sh code_dump.py
 
       # ============================================================
       # Linux & macOS Tests
@@ -56,7 +56,7 @@ jobs:
           echo "README content" > code/readme.md
           
           # Run with || true to ignore the read prompt error
-          echo "1" | ./bin.sh || true
+          python3 code_dump.py code --output code_report.txt --no-config
           
           if [ -f code_report.txt ] && [ -s code_report.txt ]; then
             echo "✅ Mode 1 passed"
@@ -91,7 +91,7 @@ jobs:
           }
           EOF
           
-          echo "2" | ./bin.sh || true
+          python3 code_dump.py --all
           
           if [ -f code_report_TestProject.txt ] && [ -s code_report_TestProject.txt ]; then
             echo "✅ Mode 2 passed"

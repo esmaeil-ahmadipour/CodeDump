@@ -1,0 +1,119 @@
+--- a/.github/workflows/test.yml
++++ b/.github/workflows/test.yml
+@@ -41,7 +41,7 @@
+ 
+       - name: Make scripts executable (Unix)
+         if: runner.os != 'Windows'
+-        run: chmod +x bin.sh code_dump.py
++        run: chmod +x run.sh code_dump.py
+ 
+       # ============================================================
+       # Linux & macOS Tests
+@@ -56,7 +56,7 @@
+           echo "README content" > code/readme.md
+           
+           # Run with || true to ignore the read prompt error
+-          echo "1" | ./bin.sh || true
++          python3 code_dump.py code --output code_report.txt --no-config
+           
+           if [ -f code_report.txt ] && [ -s code_report.txt ]; then
+             echo "✅ Mode 1 passed"
+@@ -91,7 +91,7 @@
+           }
+           EOF
+           
+-          echo "2" | ./bin.sh || true
++          python3 code_dump.py --all
+           
+           if [ -f code_report_TestProject.txt ] && [ -s code_report_TestProject.txt ]; then
+             echo "✅ Mode 2 passed"
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -42,14 +42,14 @@
+ 
+       - name: Make scripts executable (Unix)
+         if: runner.os != 'Windows'
+-        run: chmod +x bin.sh code_dump.py
++        run: chmod +x run.sh code_dump.py
+ 
+       - name: Quick test - Mode 1
+         shell: bash
+         run: |
+           mkdir -p code
+           echo "print('test')" > code/test.py
+-          echo "1" | ./bin.sh || true
++          python3 code_dump.py code --output code_report.txt --no-config
+           if [ -f code_report.txt ]; then
+             echo "✅ Mode 1 works"
+           else
+@@ -78,9 +78,9 @@
+       - name: Create Linux package
+         run: |
+           mkdir -p CodeDump-Linux/code
+-          cp bin.sh code_dump.py settings.json README.md CodeDump-Linux/ 2>/dev/null || true
++          cp run.sh code_dump.py settings.json README.md CodeDump-Linux/ 2>/dev/null || true
+           echo "Place your source files here for Mode 1." > CodeDump-Linux/code/README.md
+-          chmod +x CodeDump-Linux/bin.sh CodeDump-Linux/code_dump.py
++          chmod +x CodeDump-Linux/run.sh CodeDump-Linux/code_dump.py
+           tar -czvf CodeDump-Linux.tar.gz CodeDump-Linux/
+           
+       - name: Upload Linux artifact
+@@ -99,9 +99,9 @@
+       - name: Create macOS package
+         run: |
+           mkdir -p CodeDump-macOS/code
+-          cp bin.sh code_dump.py settings.json README.md CodeDump-macOS/
++          cp run.sh code_dump.py settings.json README.md CodeDump-macOS/
+           echo "Place your source files here for Mode 1." > CodeDump-macOS/code/README.md
+-          chmod +x CodeDump-macOS/bin.sh CodeDump-macOS/code_dump.py
++          chmod +x CodeDump-macOS/run.sh CodeDump-macOS/code_dump.py
+ 
+           
+           cat > CodeDump-macOS/run.command << 'EOF'
+@@ -109,7 +109,7 @@
+           cd "$(dirname "$0")"
+           echo "Starting CodeDump..."
+           echo ""
+-          ./bin.sh
++          ./run.sh
+           EOF
+           chmod +x CodeDump-macOS/run.command
+           
+@@ -133,7 +133,7 @@
+         run: |
+           New-Item -ItemType Directory -Path CodeDump-Windows/code -Force
+           
+-          Copy-Item bin.sh -Destination CodeDump-Windows/
++          Copy-Item run.sh -Destination CodeDump-Windows/
+           Copy-Item code_dump.py -Destination CodeDump-Windows/
+           Copy-Item settings.json -Destination CodeDump-Windows/
+           Copy-Item README.md -Destination CodeDump-Windows/
+@@ -210,7 +210,7 @@
+           @'
+           #!/bin/bash
+           echo "Running CodeDump in WSL..."
+-          ./bin.sh
++          ./run.sh
+           '@ | Out-File -FilePath CodeDump-Windows/run-wsl.sh -Encoding UTF8
+           
+           @"
+@@ -221,7 +221,7 @@
+           
+           1. PowerShell: .\run.ps1
+           2. CMD: run.bat
+-          3. WSL/Git Bash: ./bin.sh or ./run-wsl.sh
++          3. WSL/Git Bash: ./run.sh or ./run-wsl.sh
+           
+           Requirements:
+           - Python 3.8+
+@@ -280,8 +280,8 @@
+             
+             | OS | File | Run Command |
+             |:---|:---|:---|
+-            | 🐧 Linux | CodeDump-Linux.tar.gz | `./bin.sh` |
+-            | 🍎 macOS | CodeDump-macOS.tar.gz | `./bin.sh` or double-click `run.command` |
++            | 🐧 Linux | CodeDump-Linux.tar.gz | `./run.sh` |
++            | 🍎 macOS | CodeDump-macOS.tar.gz | `./run.sh` or double-click `run.command` |
+             | 🪟 Windows | CodeDump-Windows.zip | `run.ps1` (PowerShell) or `run.bat` (CMD) |
+             
+             ### 📖 Quick Start
